@@ -27,5 +27,8 @@
   "homepage": "https://github.com/Lysander6/jqtpl-language-server#readme",
   "dependencies": {
     "vscode-languageclient": "^8.0.2"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.16.0"
   }
 }
