@@ -6,8 +6,12 @@
   "bin": {
     "jqtpl-language-server": "dist/server.js"
   },
+  "files": [
+    "/dist"
+  ],
   "scripts": {
-    "build": "esbuild --bundle src/index.ts --platform=node --target=node16 --outfile=dist/server.js",
+    "build": "esbuild src/index.ts --bundle --platform=node --sourcemap --target=node16 --outfile=dist/server.js",
+    "clean": "rimraf dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
