@@ -4,7 +4,7 @@
   "description": "LSP client for jqtpl",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild --bundle src/index.ts --platform=node --target=node18 --outfile=dist/client.js",
+    "build": "esbuild --bundle src/index.ts --platform=node --target=node16 --outfile=dist/client.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
