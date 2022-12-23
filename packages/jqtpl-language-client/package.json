@@ -3,13 +3,26 @@
   "version": "0.0.1",
   "description": "LSP client for jqtpl",
   "main": "dist/client.js",
+  "activationEvents": [
+    "onLanguage:jqtpl"
+  ],
   "engines": {
     "vscode": "^1.74.0"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "jqtpl",
+        "extensions": [
+          ".jqtpl"
+        ]
+      }
+    ]
   },
   "files": [
     "/dist"
   ],
-  "publisher": "lysander",
+  "publisher": "Lysander",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --external:vscode --platform=node --sourcemap --target=node16 --outfile=dist/client.js",
     "clean": "rimraf dist",
