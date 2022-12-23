@@ -9,8 +9,9 @@ import {
 
 let client: LanguageClient;
 
-export function activate(_context: ExtensionContext) {
-  const serverModule = "jqtpl-language-server";
+export function activate(context: ExtensionContext) {
+  // before packaging, move built server to base directory of client extension
+  const serverModule = context.asAbsolutePath("server.js");
 
   const serverOptions: ServerOptions = {
     run: { module: serverModule, transport: TransportKind.ipc },
@@ -18,7 +19,7 @@ export function activate(_context: ExtensionContext) {
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ pattern: "*.jqtpl" }],
+    documentSelector: [{ scheme: "file", language: "jqtpl" }],
   };
 
   client = new LanguageClient(
