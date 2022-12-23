@@ -1,0 +1,31 @@
+{
+  "name": "jqtpl-language-server",
+  "version": "0.0.1",
+  "description": "Language server (LSP) for jqtpl",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "esbuild --bundle src/index.ts --platform=node --target=node18 --outfile=dist/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lysander6/jqtpl-language-server.git"
+  },
+  "keywords": [
+    "jqtpl",
+    "lsp",
+    "language-server",
+    "language-server-protocol"
+  ],
+  "author": "Lysander <lysander6@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Lysander6/jqtpl-language-server/issues"
+  },
+  "homepage": "https://github.com/Lysander6/jqtpl-language-server#readme",
+  "dependencies": {
+    "tree-sitter": "^0.20.1",
+    "vscode-languageserver": "^8.0.2",
+    "vscode-languageserver-textdocument": "^1.0.8"
+  }
+}
