@@ -2,7 +2,10 @@
   "name": "jqtpl-language-server",
   "version": "0.0.1",
   "description": "Language server (LSP) for jqtpl",
-  "main": "dist/index.js",
+  "main": "dist/server.js",
+  "bin": {
+    "jqtpl-language-server": "dist/server.js"
+  },
   "scripts": {
     "build": "esbuild --bundle src/index.ts --platform=node --target=node16 --outfile=dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"

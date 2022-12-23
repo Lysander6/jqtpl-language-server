@@ -2,7 +2,10 @@
   "name": "jqtpl-language-client",
   "version": "0.0.1",
   "description": "LSP client for jqtpl",
-  "main": "dist/index.js",
+  "main": "dist/client.js",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
   "scripts": {
     "build": "esbuild --bundle src/index.ts --platform=node --target=node16 --outfile=dist/client.js",
     "test": "echo \"Error: no test specified\" && exit 1"
