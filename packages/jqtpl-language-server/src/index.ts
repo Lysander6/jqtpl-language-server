@@ -7,22 +7,39 @@ import {
   InitializeResult,
   InsertTextFormat,
   ProposedFeatures,
-  // TextDocuments,
+  TextDocumentPositionParams,
+  TextDocumentSyncKind,
+  TextDocuments,
 } from "vscode-languageserver/node";
 
-// import { TextDocument } from 'vscode-languageserver-textdocument';
+import { TextDocument } from "vscode-languageserver-textdocument";
 
-// TODO: `chmod +x` built `index.js`
+const SNIPPETS = [
+  { label: "{{= ...}}", newText: "{{= $1}}$0" },
+  { label: "{{if ...}}", newText: "{{if $1}}$2{{/if}}$0" },
+  { label: "{{var ...}}", newText: "{{var ${1:locals.}$2 = $3}}$0" },
+  { label: "{{html ...}}", newText: "{{html $1}}$0" },
+  { label: "{{each ...}}", newText: "{{each({${2:i}, ${3:item}}) $1}}$0" },
+  {
+    label: "{{tmpl ...}}",
+    newText: "{{tmpl({$3}) partials.getTemplate($1, $2)}}$0",
+  },
+];
 
 const connection = createConnection(ProposedFeatures.all);
-// const documents = new TextDocuments(TextDocument);
+const documents = new TextDocuments(TextDocument);
 
 connection.onInitialize((_params) => {
   const result: InitializeResult = {
     capabilities: {
       completionProvider: {
-        resolveProvider: true,
-        triggerCharacters: ["{{"],
+        triggerCharacters: ["{"],
+      },
+      textDocumentSync: TextDocumentSyncKind.Incremental,
+      workspace: {
+        workspaceFolders: {
+          supported: true,
+        },
       },
     },
   };
@@ -30,27 +47,57 @@ connection.onInitialize((_params) => {
   return result;
 });
 
-connection.onCompletion((_params) => {
-  const completions: CompletionItem[] = [
-    {
-      label: "if",
-      kind: CompletionItemKind.Text,
-      insertText: "{{if $1}}$2{{/if}}$0",
-      insertTextFormat: InsertTextFormat.Snippet,
-      data: 1,
+connection.onCompletion((params: TextDocumentPositionParams) => {
+  const doc = documents.get(params.textDocument.uri);
+
+  if (!doc) {
+    return [];
+  }
+
+  // 4 characters wide slice surrounding the cursor
+  const surroundingText = doc.getText({
+    start: {
+      line: params.position.line,
+      character: params.position.character - 2,
     },
-  ];
+    end: {
+      line: params.position.line,
+      character: params.position.character + 2,
+    },
+  });
+  const editRange = {
+    start: { ...params.position },
+    end: { ...params.position },
+  };
+
+  // expand edit range to replace any curly brackets that were already inserted
+  // by the user
+  if (surroundingText[0] == "{") {
+    editRange.start.character -= 1;
+  }
+  if (surroundingText[1] == "{") {
+    editRange.start.character -= 1;
+  }
+  if (surroundingText[2] == "}") {
+    editRange.end.character += 1;
+  }
+  if (surroundingText[3] == "}") {
+    editRange.end.character += 1;
+  }
+
+  const completions: CompletionItem[] = SNIPPETS.map(({ label, newText }) => ({
+    label,
+    kind: CompletionItemKind.Snippet,
+    textEdit: {
+      newText,
+      range: editRange,
+    },
+    insertTextFormat: InsertTextFormat.Snippet,
+  }));
 
   return completions;
 });
 
-connection.onCompletionResolve((item) => {
-  if (item.data === 1) {
-    item.detail = "An {{if ...}} directive";
-    item.documentation = "Some more documentation";
-  }
-
-  return item;
-});
+documents.listen(connection);
 
 connection.listen();
