@@ -14,6 +14,17 @@ import {
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 
+import Parser from "tree-sitter";
+import Jqtpl from "tree-sitter-jqtpl";
+
+// Broken: https://github.com/alex-pinkus/tree-sitter-swift/issues/236
+// Suggested above workaround using wasm (with `web-tree-sitter`) is broken as
+// well: https://github.com/tree-sitter/tree-sitter/issues/1765 🤡
+// Gotta wait till new version of `tree-sitter` node module is released:
+// https://github.com/tree-sitter/tree-sitter/issues/1882
+const parser = new Parser();
+parser.setLanguage(Jqtpl);
+
 const SNIPPETS = [
   { label: "{{= ...}}", newText: "{{= $1}}$0" },
   { label: "{{if ...}}", newText: "{{if $1}}$2{{/if}}$0" },
@@ -96,6 +107,12 @@ connection.onCompletion((params: TextDocumentPositionParams) => {
   }));
 
   return completions;
+});
+
+documents.onDidChangeContent((e) => {
+  const tree = parser.parse(e.document.getText());
+
+  connection.console.info(tree.rootNode.toString());
 });
 
 documents.listen(connection);

@@ -6,11 +6,14 @@
   "bin": {
     "jqtpl-language-server": "dist/server.js"
   },
+  "engines": {
+    "node": ">=16"
+  },
   "files": [
     "/dist"
   ],
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --sourcemap --target=node16 --outfile=dist/server.js",
+    "build": "esbuild src/index.ts --bundle --external:tree-sitter --external:tree-sitter-jqtpl --platform=node --sourcemap --target=node16 --outfile=dist/server.js",
     "clean": "rimraf dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -32,6 +35,7 @@
   "homepage": "https://github.com/Lysander6/jqtpl-language-server#readme",
   "dependencies": {
     "tree-sitter": "^0.20.1",
+    "tree-sitter-jqtpl": "file:../../../tree-sitter-jqtpl",
     "vscode-languageserver": "^8.0.2",
     "vscode-languageserver-textdocument": "^1.0.8"
   }
