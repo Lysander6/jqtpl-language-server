@@ -1,11 +1,29 @@
 // use tree_sitter::Parser;
 // use tree_sitter_jqtpl::language;
 
+use dashmap::DashMap;
+use ropey::Rope;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
+
+#[derive(Debug)]
+struct TextDocumentItem {
+    uri: Url,
+    text: String,
+    version: i32,
+}
 
 #[derive(Debug)]
 struct Backend {
     client: Client,
+    document_map: DashMap<String, Rope>,
+}
+
+impl Backend {
+    async fn on_change(&self, params: TextDocumentItem) {
+        let rope = ropey::Rope::from_str(&params.text);
+        self.document_map
+            .insert(params.uri.to_string(), rope.clone());
+    }
 }
 
 #[tower_lsp::async_trait]
@@ -19,6 +37,9 @@ impl LanguageServer for Backend {
                     work_done_progress_options: Default::default(),
                     all_commit_characters: None,
                 }),
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::FULL,
+                )),
                 ..ServerCapabilities::default()
             },
             server_info: None,
@@ -47,6 +68,44 @@ impl LanguageServer for Backend {
         }])))
     }
 
+    async fn did_open(&self, mut params: DidOpenTextDocumentParams) {
+        self.client
+            .log_message(
+                MessageType::INFO,
+                format!(
+                    "jqtpl-language-server did open {}",
+                    params.text_document.uri
+                ),
+            )
+            .await;
+
+        self.on_change(TextDocumentItem {
+            uri: params.text_document.uri,
+            text: std::mem::take(&mut params.text_document.text),
+            version: params.text_document.version,
+        })
+        .await;
+    }
+
+    async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
+        self.client
+            .log_message(
+                MessageType::INFO,
+                format!(
+                    "jqtpl-language-server did change {}",
+                    params.text_document.uri
+                ),
+            )
+            .await;
+
+        self.on_change(TextDocumentItem {
+            uri: params.text_document.uri,
+            text: std::mem::take(&mut params.content_changes[0].text),
+            version: params.text_document.version,
+        })
+        .await;
+    }
+
     async fn shutdown(&self) -> Result<()> {
         self.client
             .log_message(MessageType::INFO, "jqtpl-language-server says bye, bye!")
@@ -61,7 +120,11 @@ async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::build(|client| Backend { client }).finish();
+    let (service, socket) = LspService::build(|client| Backend {
+        client,
+        document_map: DashMap::new(),
+    })
+    .finish();
 
     Server::new(stdin, stdout, socket).serve(service).await;
 
