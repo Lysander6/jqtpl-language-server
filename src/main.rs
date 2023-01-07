@@ -26,6 +26,21 @@ impl Backend {
     }
 }
 
+const SNIPPETS: [(&str, &str); 6] = [
+    ("{{= ...}}", "{{= $1}}$0"),
+    ("{{if ...}}", "{{if $1}}$2{{/if}}$0"),
+    ("{{var ...}}", "{{var ${1:locals.}$2 = $3}}$0"),
+    ("{{html ...}}", "{{html $1}}$0"),
+    (
+        "{{each ...}}",
+        "{{each({${2:i}, ${3:item}}) $1}}$4{{/each}}$0",
+    ),
+    (
+        "{{tmpl ...}}",
+        "{{tmpl({$3}) partials.getTemplate($1, $2)}}$0",
+    ),
+];
+
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
@@ -53,19 +68,46 @@ impl LanguageServer for Backend {
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        Ok(Some(CompletionResponse::Array(vec![CompletionItem {
-            label: "{{if ...}}".to_string(),
-            kind: Some(CompletionItemKind::SNIPPET),
-            insert_text_format: Some(InsertTextFormat::SNIPPET),
-            text_edit: Some(CompletionTextEdit::Edit(TextEdit {
-                new_text: "{{if $1}}$2{{/if}}$0".to_string(),
-                range: Range {
-                    start: params.text_document_position.position,
-                    end: params.text_document_position.position,
-                },
-            })),
-            ..Default::default()
-        }])))
+        let document = &*self
+            .document_map
+            .get(&params.text_document_position.text_document.uri.to_string())
+            .unwrap();
+        let Position { line, character } = params.text_document_position.position;
+        let cursor_idx: usize = character.try_into().unwrap();
+        let line = document.line(line.try_into().unwrap());
+
+        let mut edit_range = Range {
+            start: params.text_document_position.position,
+            end: params.text_document_position.position,
+        };
+        if cursor_idx > 1 && line.char(cursor_idx - 2) == '{' {
+            edit_range.start.character -= 1;
+        }
+        if cursor_idx > 0 && line.char(cursor_idx - 1) == '{' {
+            edit_range.start.character -= 1;
+        }
+        if cursor_idx < line.len_chars() && line.char(cursor_idx) == '}' {
+            edit_range.end.character += 1;
+        }
+        if cursor_idx < line.len_chars().saturating_sub(1) && line.char(cursor_idx + 1) == '}' {
+            edit_range.end.character += 1;
+        }
+
+        let completions = SNIPPETS
+            .iter()
+            .map(|(label, new_text)| CompletionItem {
+                label: label.to_string(),
+                kind: Some(CompletionItemKind::SNIPPET),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                text_edit: Some(CompletionTextEdit::Edit(TextEdit {
+                    new_text: new_text.to_string(),
+                    range: edit_range,
+                })),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>();
+
+        Ok(Some(CompletionResponse::Array(completions)))
     }
 
     async fn did_open(&self, mut params: DidOpenTextDocumentParams) {
