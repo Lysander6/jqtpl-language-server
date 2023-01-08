@@ -1,5 +1,5 @@
-// use tree_sitter::Parser;
-// use tree_sitter_jqtpl::language;
+use tree_sitter::{Parser, Query, QueryCursor};
+use tree_sitter_jqtpl::language;
 
 use dashmap::DashMap;
 use ropey::Rope;
@@ -23,6 +23,75 @@ impl Backend {
         let rope = ropey::Rope::from_str(&params.text);
         self.document_map
             .insert(params.uri.to_string(), rope.clone());
+
+        let lang = language();
+
+        let mut parser = Parser::new();
+        parser.set_language(lang).unwrap();
+
+        let tree = parser.parse(&params.text, None).unwrap();
+
+        let matches = {
+            let query = Query::new(lang, "(ERROR) @error").unwrap();
+            let mut cursor = QueryCursor::new();
+
+            // matches/captures are fucked, goddammit
+            // https://github.com/tree-sitter/tree-sitter/issues/1656
+            // https://github.com/tree-sitter/tree-sitter/issues/608
+            let mut bla = vec![];
+
+            for m in cursor.matches(&query, tree.root_node(), params.text.as_bytes()) {
+                bla.extend_from_slice(
+                    &m.captures
+                        .iter()
+                        .map(|c| {
+                            let r = c.node.byte_range();
+                            let start_line = rope.byte_to_line(r.start);
+                            let start_col = r.start - rope.line_to_byte(start_line);
+                            let end_line = rope.byte_to_line(r.end);
+                            let end_col = r.end - rope.line_to_byte(end_line);
+                            ((start_line, start_col), (end_line, end_col))
+                        })
+                        .collect::<Vec<_>>()[..],
+                );
+            }
+
+            bla
+        };
+
+        self.client
+            .log_message(MessageType::INFO, format!("Error indices: {:?}", matches))
+            .await;
+
+        if matches.len() > 1 {
+            // Temporarily just publish some (any) error
+            self.client
+                .publish_diagnostics(
+                    params.uri,
+                    vec![Diagnostic::new_simple(
+                        Range {
+                            start: Position {
+                                line: matches[1].0.0 as u32,
+                                character: matches[1].0.1 as u32,
+                            },
+                            end: Position {
+                                line: matches[1].1.0 as u32,
+                                character: matches[1].1.1 as u32,
+                            },
+                        },
+                        "whoopsie!".to_string(),
+                    )],
+                    Some(params.version),
+                )
+                .await;
+        } else {
+            self.client
+                .publish_diagnostics(params.uri, vec![], Some(params.version))
+                .await;
+        }
+
+        let sexp = tree.root_node().to_sexp();
+        self.client.log_message(MessageType::INFO, sexp).await;
     }
 }
 
