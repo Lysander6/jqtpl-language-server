@@ -3,8 +3,18 @@ use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
 enum Token {
-    Directive(String),
     Content,
+    Comment,
+    Each,
+    EndEach,
+    Html,
+    Var,
+    If,
+    Else,
+    EndIf,
+    Tmpl,
+    Print,
+    Unknown(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -18,14 +28,58 @@ fn parser() -> impl Parser<char, Vec<Token>, Error = Simple<char>> {
 
     let content = take_until(just("{").rewind());
 
-    let directive = code.delimited_by(just("{{"), just("}}"));
+    let r#if = text::keyword("if").then_ignore(code.clone()).to(Token::If);
 
-    choice((
-        directive.map(|code| Token::Directive(String::from_iter(code.iter()))),
-        content.to(Token::Content),
+    let r#else = text::keyword("else")
+        .then_ignore(code.clone().or_not())
+        .to(Token::Else);
+
+    let end_if = just("/if").to(Token::EndIf);
+
+    let comment = just("!")
+        .then_ignore(code.clone().or_not())
+        .to(Token::Comment);
+
+    let var = text::keyword("var")
+        .then_ignore(code.clone())
+        .to(Token::Var);
+
+    let each = text::keyword("each")
+        .then_ignore(code.clone())
+        .to(Token::Each);
+
+    let end_each = just("/each").to(Token::EndEach);
+
+    let html = text::keyword("html")
+        .then_ignore(code.clone())
+        .to(Token::Html);
+
+    let tmpl = text::keyword("tmpl")
+        .then_ignore(code.clone())
+        .to(Token::Tmpl);
+
+    let print = just("=").then_ignore(code.clone()).to(Token::Print);
+
+    let directive = choice((
+        r#if,
+        r#else,
+        end_if,
+        each,
+        end_each,
+        html,
+        comment,
+        var,
+        tmpl,
+        print,
+        code.clone()
+            .map(|s| Token::Unknown(String::from_iter(s.iter()))),
     ))
-    .repeated()
-    .then_ignore(end())
+    .delimited_by(just("{{"), just("}}"));
+
+    choice((directive, content.to(Token::Content)))
+        // .recover_with(skip_then_retry_until(['{', '}']).consume_end())
+        .repeated()
+        .then_ignore(end())
 }
 
 #[cfg(test)]
@@ -41,13 +95,13 @@ mod tests {
     #[test]
     fn braces() {
         let result = parser().parse("{{if }}");
-        assert_eq!(result, Ok(vec![Token::Directive("if ".to_string())]));
+        assert_eq!(result, Ok(vec![Token::If]));
     }
 
     #[test]
     fn else_() {
         let result = parser().parse("{{else}}");
-        assert_eq!(result, Ok(vec![Token::Directive("else".to_string())]));
+        assert_eq!(result, Ok(vec![Token::Else]));
     }
 
     #[test]
@@ -58,6 +112,15 @@ mod tests {
           goodbye
         {{/if}}";
         let result = parser().parse(src);
-        assert_eq!(result, Ok(vec![Token::Directive("else".to_string())]));
+        assert_eq!(
+            result,
+            Ok(vec![
+                Token::If,
+                Token::Content,
+                Token::Else,
+                Token::Content,
+                Token::EndIf
+            ])
+        );
     }
 }
