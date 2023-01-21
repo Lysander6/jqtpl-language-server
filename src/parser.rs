@@ -22,69 +22,43 @@ struct Spanned<T>(T, Range<usize>);
 
 #[allow(dead_code)]
 fn parser() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
+    use Token::*;
+
     let code = choice((none_of("\n\r}"), just('}').padded_by(none_of("}"))))
         .repeated()
         .at_least(1);
 
-    let content =
-        take_until(just("{").rewind()).map_with_span(|_, span| Spanned(Token::Content, span));
+    let content = take_until(just("{").rewind()).map_with_span(|_, span| Spanned(Content, span));
 
-    let r#if = text::keyword("if")
-        .then_ignore(code.clone())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::If, span));
+    let r#if = text::keyword("if").then_ignore(code.clone()).to(If);
 
     let r#else = text::keyword("else")
         .then_ignore(code.clone().or_not())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::Else, span));
+        .to(Else);
 
-    let end_if = just("/if")
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::EndIf, span));
+    let end_if = just("/if").to(EndIf);
 
-    let comment = just("!")
-        .then_ignore(code.clone().or_not())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::Comment, span));
+    let comment = just("!").then_ignore(code.clone().or_not()).to(Comment);
 
-    let var = text::keyword("var")
-        .then_ignore(code.clone())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::Var, span));
+    let var = text::keyword("var").then_ignore(code.clone()).to(Var);
 
-    let each = text::keyword("each")
-        .then_ignore(code.clone())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::Each, span));
+    let each = text::keyword("each").then_ignore(code.clone()).to(Each);
 
-    let end_each = just("/each")
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::EndEach, span));
+    let end_each = just("/each").to(EndEach);
 
-    let html = text::keyword("html")
-        .then_ignore(code.clone())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::Html, span));
+    let html = text::keyword("html").then_ignore(code.clone()).to(Html);
 
-    let tmpl = text::keyword("tmpl")
-        .then_ignore(code.clone())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::Tmpl, span));
+    let tmpl = text::keyword("tmpl").then_ignore(code.clone()).to(Tmpl);
 
-    let print = just("=")
-        .then_ignore(code.clone())
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|_, span| Spanned(Token::Print, span));
+    let print = just("=").then_ignore(code.clone()).to(Print);
 
-    let unknown = code
-        .clone()
-        .delimited_by(just("{{"), just("}}"))
-        .map_with_span(|s, span| Spanned(Token::Unknown(String::from_iter(s.iter())), span));
+    let unknown = code.clone().map(|s| Unknown(String::from_iter(s.iter())));
 
     let directive = choice((
         r#if, r#else, end_if, each, end_each, html, comment, var, tmpl, print, unknown,
-    ));
+    ))
+    .delimited_by(just("{{"), just("}}"))
+    .map_with_span(|t, span| Spanned(t, span));
 
     choice((directive, content))
         // .recover_with(skip_then_retry_until(['{', '}']).consume_end())
