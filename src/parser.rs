@@ -23,10 +23,13 @@ pub struct Spanned<T>(T, Range<usize>);
 pub fn parser() -> impl Parser<char, Vec<Spanned<Stmt>>, Error = Simple<char>> {
     use Stmt::*;
 
-    let code = choice((none_of("\n\r}"), just('}').padded_by(none_of("}"))))
+    let code = choice((none_of("\n\r}"), just('}').padded_by(none_of("\n\r}"))))
         .repeated()
         .at_least(1);
-    let content = take_until(just("{").rewind()).map_with_span(|_, span| Spanned(Content, span));
+    let content = choice((none_of("{"), just('{').padded_by(none_of("{"))))
+        .repeated()
+        .at_least(1)
+        .map_with_span(|_, span| Spanned(Content, span));
 
     let comment = just("!").then_ignore(code.clone().or_not()).to(Comment);
     let each = text::keyword("each").then_ignore(code.clone()).to(Each);
@@ -94,6 +97,19 @@ mod tests {
                 Spanned(Content, 43..70),
                 Spanned(IfEnd, 70..77),
             ])
+        );
+    }
+
+    #[test]
+    fn trailing_content() {
+        let src = r###"{{if 1 = 1}}
+    "###;
+
+        let result = parser().parse(src);
+
+        assert_eq!(
+            result,
+            Ok(vec![Spanned(If, 0..12), Spanned(Content, 12..17)])
         );
     }
 }
