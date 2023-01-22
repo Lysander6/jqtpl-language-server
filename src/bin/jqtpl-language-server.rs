@@ -1,5 +1,3 @@
-mod parser;
-
 use tree_sitter::{Parser, Query, QueryCursor};
 use tree_sitter_jqtpl::language;
 

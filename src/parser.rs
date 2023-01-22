@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
-enum Stmt {
+pub enum Stmt {
     Comment,
     Content,
     Each,
@@ -18,10 +18,9 @@ enum Stmt {
 }
 
 #[derive(Debug, PartialEq)]
-struct Spanned<T>(T, Range<usize>);
+pub struct Spanned<T>(T, Range<usize>);
 
-#[allow(dead_code)]
-fn parser() -> impl Parser<char, Vec<Spanned<Stmt>>, Error = Simple<char>> {
+pub fn parser() -> impl Parser<char, Vec<Spanned<Stmt>>, Error = Simple<char>> {
     use Stmt::*;
 
     let code = choice((none_of("\n\r}"), just('}').padded_by(none_of("}"))))
