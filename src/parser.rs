@@ -13,8 +13,8 @@ pub enum Stmt {
     IfEnd,
     Print,
     Tmpl,
-    Unknown(String),
     Var,
+    Unknown(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -46,7 +46,8 @@ pub fn parser() -> impl Parser<char, Vec<Spanned<Stmt>>, Error = Simple<char>> {
     let var = text::keyword("var").then_ignore(code.clone()).to(Var);
 
     let statement = choice((
-        comment, each, each_end, r#else, html, r#if, if_end, print, tmpl, unknown, var,
+        comment, each, each_end, r#else, html, r#if, if_end, print, tmpl, var,
+        unknown, // `Unknown` is a fallback and always should be considered last
     ))
     .delimited_by(just("{{"), just("}}"))
     .map_with_span(|t, span| Spanned(t, span));
@@ -121,5 +122,14 @@ mod tests {
         let result = parser().parse(src);
 
         assert_eq!(result, Ok(vec![Spanned(Tmpl, 0..78)]));
+    }
+
+    #[test]
+    fn var_stmt() {
+        let src = r#"{{var hello = lodash.get(data.getResult(), 'some.field', false)}}"#;
+
+        let result = parser().parse(src);
+
+        assert_eq!(result, Ok(vec![Spanned(Var, 0..65)]));
     }
 }
