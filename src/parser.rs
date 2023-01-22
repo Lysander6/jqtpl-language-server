@@ -23,10 +23,10 @@ pub struct Spanned<T>(T, Range<usize>);
 pub fn parser() -> impl Parser<char, Vec<Spanned<Stmt>>, Error = Simple<char>> {
     use Stmt::*;
 
-    let code = choice((none_of("\n\r}"), just('}').padded_by(none_of("\n\r}"))))
+    let code = choice((none_of("\n\r}"), just('}').then_ignore(none_of("\n\r}"))))
         .repeated()
         .at_least(1);
-    let content = choice((none_of("{"), just('{').padded_by(none_of("{"))))
+    let content = choice((none_of("{"), just('{').then_ignore(none_of("{"))))
         .repeated()
         .at_least(1)
         .map_with_span(|_, span| Spanned(Content, span));
@@ -111,5 +111,15 @@ mod tests {
             result,
             Ok(vec![Spanned(If, 0..12), Spanned(Content, 12..17)])
         );
+    }
+
+    #[test]
+    fn nested_singular_brace() {
+        let src =
+            r#"{{tmpl({ some: stuff }) partials.getTemplate('some', configuration.template)}}"#;
+
+        let result = parser().parse(src);
+
+        assert_eq!(result, Ok(vec![Spanned(Tmpl, 0..78)]));
     }
 }
